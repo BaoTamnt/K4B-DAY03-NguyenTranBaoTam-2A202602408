@@ -11,108 +11,277 @@ from typing import Dict, Any
 # ==============================================================================
 
 TOOLS_SCHEMA = [
-    # Tool 1: Đã được định nghĩa mẫu sẵn cho Học viên tham khảo
     {
-        "name": "academic_query",
-        "description": "Tra cứu hồ sơ và thông tin học vụ của sinh viên VinUni bằng mã sinh viên.",
+        "name": "restaurant_query",
+        "description": "Tra cứu thông tin nhà hàng, món ăn và ưu tiên của khách hàng theo tên nhà hàng hoặc tiêu chí đặt bàn.",
         "parameters": {
             "type": "object",
             "properties": {
-                "student_id": {
+                "restaurant_name": {
                     "type": "string",
-                    "description": "Mã sinh viên cần tra cứu (ví dụ: 'SV2026001')"
+                    "description": "Tên nhà hàng cần tra cứu (ví dụ: 'Nhà hàng Mộc Lan')"
+                },
+                "customer_id": {
+                    "type": "string",
+                    "description": "Mã khách hàng hoặc mã đặt chỗ nếu cần (ví dụ: 'KH001')"
                 }
             },
-            "required": ["student_id"]
+            "required": []
         }
     },
-    
-    # --------------------------------------------------------------------------
-    # TODO 1.2: HỌC VIÊN HOÀN THIỆN TOOL SCHEMA CHO 'schedule_appointment'
-    # 🎯 YÊU CẦU THIẾT KẾ SCHEMA (JSON SCHEMA STANDARD):
-    # 1. Tool dùng để đặt lịch hẹn tư vấn học vụ với Cố vấn học tập VinUni.
-    # 2. Thiết kế các tham số (properties) để LLM trích xuất:
-    #    - student_id (string): Mã sinh viên cần đặt lịch (ví dụ: 'SV2026001')
-    #    - datetime_str (string): Thời gian hẹn (ví dụ: '14:00 15/09/2026')
-    #    - advisor_name (string): Tên cố vấn học tập
-    # 3. Khai báo danh sách các trường bắt buộc (required).
-    # --------------------------------------------------------------------------
+
     {
         "name": "schedule_appointment",
-        "description": "Đặt lịch hẹn tư vấn học vụ với Cố vấn học tập VinUni.",
+        "description": (
+            "Đặt bàn tại nhà hàng dựa trên thời gian, "
+            "tên nhà hàng, số lượng người và yêu cầu đặc biệt "
+            "của khách hàng."
+        ),
         "parameters": {
             "type": "object",
             "properties": {
-                # TODO 1.2: Khai báo các thuộc tính tham số cho Tool tại đây...
+
+                "customer_id": {
+                    "type": "string",
+                    "description": (
+                        "Mã khách hàng đặt bàn, "
+                        "ví dụ: 'KH001'."
+                    )
+                },
+
+                "datetime_str": {
+                    "type": "string",
+                    "description": (
+                        "Thời gian muốn đặt bàn, "
+                        "ví dụ: '19:00 15/09/2026'."
+                    )
+                },
+
+                "restaurant_name": {
+                    "type": "string",
+                    "description": (
+                        "Tên nhà hàng muốn đặt bàn, "
+                        "ví dụ: 'Nhà hàng Mộc Lan'."
+                    )
+                },
+
+                "table_size": {
+                    "type": "integer",
+                    "description": (
+                        "Số lượng người cần đặt bàn, "
+                        "ví dụ: 4."
+                    )
+                },
+
+                "preference": {
+                    "type": "string",
+                    "description": (
+                        "Sở thích hoặc yêu cầu đặc biệt của khách hàng, "
+                        "ví dụ: 'món chay', 'không gian yên tĩnh', "
+                        "'bàn gần cửa sổ'."
+                    )
+                }
             },
-            "required": [] # TODO 1.2: Khai báo danh sách các trường bắt buộc tại đây...
+
+            "required": [
+                "customer_id",
+                "datetime_str",
+                "restaurant_name"
+            ]
         }
     }
 ]
+
 
 # ==============================================================================
 # 2. MÔ PHỎNG DỮ LIỆU & HÀM THỰC THI TOOL (EXECUTION LAYER)
 # ==============================================================================
 
-MOCK_DATABASE = {
-    "SV2026001": {
-        "full_name": "Nguyễn Văn An",
-        "class": "AI-K4",
-        "gpa": 3.85,
-        "email": "an.nv@vinuni.edu.vn",
-        "status": "Đang học",
-        "advisor": "PGS.TS Nguyễn Văn A"
+MOCK_RESTAURANT_DATABASE = {
+
+    "Nhà hàng Mộc Lan": {
+        "cuisine": "Việt Nam",
+        "location": "Cầu Giấy, Hà Nội",
+        "price_range": "150.000 - 300.000 VNĐ/người",
+        "rating": 4.6,
+        "features": [
+            "món Việt",
+            "không gian yên tĩnh",
+            "phù hợp gia đình"
+        ]
     },
-    "SV2026002": {
-        "full_name": "Trần Thị Bình",
-        "class": "AI-K4",
-        "gpa": 3.60,
-        "email": "binh.tt@vinuni.edu.vn",
-        "status": "Đang học",
-        "advisor": "TS. Lê Thị B"
+
+    "The Green Garden": {
+        "cuisine": "Healthy",
+        "location": "Đống Đa, Hà Nội",
+        "price_range": "120.000 - 250.000 VNĐ/người",
+        "rating": 4.5,
+        "features": [
+            "món chay",
+            "healthy food",
+            "không gian xanh"
+        ]
+    },
+
+    "Pizza House": {
+        "cuisine": "Pizza",
+        "location": "Hà Đông, Hà Nội",
+        "price_range": "100.000 - 220.000 VNĐ/người",
+        "rating": 4.4,
+        "features": [
+            "pizza",
+            "phù hợp nhóm bạn",
+            "không gian trẻ trung"
+        ]
+    },
+
+    "Sushi Sakura": {
+        "cuisine": "Nhật Bản",
+        "location": "Ba Đình, Hà Nội",
+        "price_range": "250.000 - 500.000 VNĐ/người",
+        "rating": 4.7,
+        "features": [
+            "sushi",
+            "sashimi",
+            "không gian sang trọng"
+        ]
     }
 }
 
 
-def execute_academic_query(student_id: str) -> str:
-    """Thực thi tra cứu học vụ theo mã sinh viên"""
-    student = MOCK_DATABASE.get(student_id.strip().upper())
-    if student:
+def execute_restaurant_query(restaurant_name: str = "", customer_id: str = "") -> str:
+    """Thực thi tra cứu thông tin nhà hàng theo tên hoặc mã khách hàng."""
+    restaurant = (restaurant_name or customer_id or "").strip()
+    if not restaurant:
+        return json.dumps({
+            "status": "VALIDATION_ERROR",
+            "message": "Tên nhà hàng hoặc mã khách hàng không được để trống."
+        }, ensure_ascii=False)
+
+    matched = MOCK_RESTAURANT_DATABASE.get(restaurant)
+    if matched:
         return json.dumps({
             "status": "SUCCESS",
-            "student_id": student_id,
-            "data": student
+            "restaurant_name": restaurant,
+            "data": matched,
+            "message": f"Thông tin nhà hàng '{restaurant}' đã được tra cứu thành công."
         }, ensure_ascii=False)
-    else:
+
+    return json.dumps({
+        "status": "NOT_FOUND",
+        "message": f"Không tìm thấy nhà hàng '{restaurant}' trong hệ thống dữ liệu mẫu.",
+        "available_restaurants": list(MOCK_RESTAURANT_DATABASE.keys())
+    }, ensure_ascii=False)
+
+
+def execute_schedule_appointment(
+    customer_id: str,
+    datetime_str: str,
+    restaurant_name: str,
+    table_size: int = 2,
+    preference: str = "Không có yêu cầu đặc biệt"
+) -> str:
+    """
+    Thực thi việc đặt bàn tại nhà hàng.
+    """
+
+    customer_id = customer_id.strip()
+
+    if not customer_id:
+        return json.dumps(
+            {
+                "status": "VALIDATION_ERROR",
+                "message": "Mã khách hàng không được để trống."
+            },
+            ensure_ascii=False
+        )
+
+    restaurant_name = restaurant_name.strip()
+
+    if restaurant_name not in MOCK_RESTAURANT_DATABASE:
+        return json.dumps(
+            {
+                "status": "RESTAURANT_NOT_FOUND",
+                "restaurant": restaurant_name,
+                "available_restaurants": list(
+                    MOCK_RESTAURANT_DATABASE.keys()
+                ),
+                "message": (
+                    f"Không tìm thấy nhà hàng "
+                    f"'{restaurant_name}'."
+                )
+            },
+            ensure_ascii=False
+        )
+
+    # Kiểm tra xem nhà hàng có tồn tại trong cơ sở dữ liệu mô phỏng
+    restaurant = MOCK_RESTAURANT_DATABASE.get(restaurant_name)
+    if not restaurant:
         return json.dumps({
             "status": "NOT_FOUND",
-            "message": f"Không tìm thấy dữ liệu sinh viên có mã '{student_id}'"
+            "message": f"Không tìm thấy thông tin nhà hàng '{restaurant_name}'"
         }, ensure_ascii=False)
 
-
-def execute_schedule_appointment(student_id: str, datetime_str: str, advisor_name: str = "PGS.TS Nguyễn Văn A") -> str:
-    """Thực thi đặt lịch hẹn tư vấn học vụ"""
+    # Giả lập logic đặt bàn (ở đây chỉ trả về phản hồi thành công)
+    confirmation_id = f"CONF-{customer_id}-{datetime_str.replace(' ', '').replace(':', '')}"
     return json.dumps({
         "status": "SUCCESS",
-        "booking_id": f"BK-{student_id}-99",
-        "student_id": student_id,
+        "confirmation_id": confirmation_id,
+        "customer_id": customer_id,
         "datetime": datetime_str,
-        "advisor": advisor_name,
-        "message": f"Đặt lịch thành công cho sinh viên {student_id} với {advisor_name} vào lúc {datetime_str}."
+        "restaurant_name": restaurant_name,
+        "table_size": table_size,
+        "preference": preference
     }, ensure_ascii=False)
 
 
 # Router gọi tool thực tế
 TOOL_ROUTER = {
-    "academic_query": execute_academic_query,
+    "restaurant_query": execute_restaurant_query,
     "schedule_appointment": execute_schedule_appointment
 }
 
-def dispatch_tool_call(tool_name: str, arguments: Dict[str, Any]) -> str:
-    """Hàm trung chuyển thực thi tool"""
-    if tool_name in TOOL_ROUTER:
-        try:
-            return TOOL_ROUTER[tool_name](**arguments)
-        except Exception as e:
-            return json.dumps({"status": "EXECUTION_ERROR", "error": str(e)}, ensure_ascii=False)
-    return json.dumps({"status": "UNKNOWN_TOOL", "error": f"Tool '{tool_name}' không tồn tại!"}, ensure_ascii=False)
+
+def dispatch_tool_call(
+    tool_name: str,
+    arguments: Dict[str, Any]
+) -> str:
+    """
+    Hàm trung chuyển yêu cầu từ Agent tới Tool tương ứng.
+    """
+
+    # Kiểm tra tool tồn tại
+    if tool_name not in TOOL_ROUTER:
+        return json.dumps(
+            {
+                "status": "UNKNOWN_TOOL",
+                "error": (
+                    f"Tool '{tool_name}' không tồn tại!"
+                )
+            },
+            ensure_ascii=False
+        )
+
+    # Thực thi tool
+    try:
+        return TOOL_ROUTER[tool_name](**arguments)
+
+    except TypeError as e:
+        return json.dumps(
+            {
+                "status": "INVALID_ARGUMENTS",
+                "tool": tool_name,
+                "error": str(e)
+            },
+            ensure_ascii=False
+        )
+
+    except Exception as e:
+        return json.dumps(
+            {
+                "status": "EXECUTION_ERROR",
+                "tool": tool_name,
+                "error": str(e)
+            },
+            ensure_ascii=False
+        )

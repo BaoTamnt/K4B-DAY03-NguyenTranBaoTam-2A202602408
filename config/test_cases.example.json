@@ -2,35 +2,35 @@
   {
     "id": "TC01",
     "type": "direct_query",
-    "question": "Chào bạn, bạn có thể giới thiệu quy chế học vụ cơ bản của Đại học VinUni không?",
+    "question": "Chào bạn, bạn có thể gợi ý cho tôi một số địa điểm nhà hàng ngon gần khu vực trường học không?",
     "expected_behavior": "Chatbot trả lời trực tiếp từ System Prompt, không cần gọi bất kỳ Tool nào.",
     "complexity": "Low"
   },
   {
     "id": "TC02",
     "type": "single_tool_query",
-    "question": "Hãy tra cứu thông tin học vụ của sinh viên SV2026001.",
-    "expected_behavior": "Agent nhận diện nhu cầu tra cứu, tự động phát sinh Tool Call 'academic_query' với mã SV2026001.",
+    "question": "Hãy tìm nhà hàng gần trường có mức giá khoảng 100k-200k/người và phục vụ món Việt Nam.",
+    "expected_behavior": "Agent nhận diện nhu cầu tra cứu nhà hàng, tự động phát sinh Tool Call 'restaurant_query' hoặc lọc dữ liệu mô phỏng phù hợp.",
     "complexity": "Medium"
   },
   {
     "id": "TC03",
     "type": "appointment_booking",
-    "question": "TODO: [Học viên tự viết câu hỏi yêu cầu Agent đặt lịch hẹn tư vấn học vụ]",
-    "expected_behavior": "Agent tự động phát sinh Tool Call 'schedule_appointment' với đúng thời gian và thông tin sinh viên.",
+    "question": "TODO: [Học viên tự viết câu hỏi yêu cầu Agent đặt bàn cho 4 người vào tối nay lúc 19:00]",
+    "expected_behavior": "Agent tự động phát sinh Tool Call 'schedule_appointment' với đúng thời gian, số lượng khách và yêu cầu đặc biệt.",
     "complexity": "Medium"
   },
   {
     "id": "TC04",
     "type": "multi_step_reasoning",
-    "question": "TODO: [Học viên tự viết câu hỏi yêu cầu Agent suy luận ReAct đa bước (Tra cứu -> Đặt lịch với Cố vấn)]",
-    "expected_behavior": "Agent thực hiện chuỗi suy luận ReAct: Tra cứu cố vấn học tập của sinh viên trước, sau đó tiến hành đặt lịch hẹn.",
+    "question": "TODO: [Học viên tự viết câu hỏi yêu cầu Agent suy luận ReAct đa bước (lọc nhà hàng -> đặt bàn theo preference)]",
+    "expected_behavior": "Agent thực hiện chuỗi suy luận ReAct: tìm nhà hàng phù hợp, đối chiếu mức giá và không gian, sau đó xác nhận đặt bàn.",
     "complexity": "High"
   },
   {
     "id": "TC05",
     "type": "edge_case_handling",
-    "question": "TODO: [Học viên tự viết câu hỏi tra cứu mã sinh viên không tồn tại (ví dụ SV9999999)]",
+    "question": "TODO: [Học viên tự viết câu hỏi tra cứu tên nhà hàng không tồn tại trong dữ liệu mẫu]",
     "expected_behavior": "Agent nhận kết quả NOT_FOUND từ Tool và đưa ra phản hồi lịch sự, chính xác không bịa đặt dữ liệu.",
     "complexity": "Medium"
   }

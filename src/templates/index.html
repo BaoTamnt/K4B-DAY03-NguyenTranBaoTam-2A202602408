@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Restaurant ReAct Demo</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  </head>
+  <body>
+    <div class="container">
+      <header class="topbar">
+        <h1>🍽️ Restaurant ReAct Agent</h1>
+        <p>Demo web cho hệ thống gợi ý nhà hàng và đặt bàn</p>
+      </header>
+
+      <div class="workspace-grid">
+        <section class="chat-panel">
+          <div id="chat-box" class="chat-box">
+            <div class="message bot">
+              Xin chào! Mình có thể gợi ý nhà hàng, kiểm tra món ăn, hoặc đặt bàn cho bạn.
+            </div>
+          </div>
+
+          <form id="chat-form" class="chat-form">
+            <input
+              id="message-input"
+              type="text"
+              name="message"
+              placeholder="Ví dụ: Đặt bàn cho 4 người vào tối nay lúc 19:00 tại Nhà hàng Mộc Lan"
+              autocomplete="off"
+              required
+            >
+            <button type="submit">Gửi</button>
+          </form>
+        </section>
+
+        <aside id="restaurant-review" class="review-panel">
+          <h3>📊 Đánh giá nhà hàng</h3>
+          <div class="review-empty-state">
+            <p>Chưa có dữ liệu nhà hàng cho câu hỏi hiện tại.</p>
+          </div>
+        </aside>
+
+        <aside id="reasoning-box" class="reasoning-box">
+          <h3>🔎 Cách AI suy luận</h3>
+          <div class="reasoning-empty-state">
+            <p>Quá trình suy luận sẽ hiển thị ở đây sau khi bạn gửi câu hỏi.</p>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <script>
+      const form = document.getElementById('chat-form');
+      const input = document.getElementById('message-input');
+      const chatBox = document.getElementById('chat-box');
+      const reasoningBox = document.getElementById('reasoning-box');
+      const restaurantReview = document.getElementById('restaurant-review');
+
+      function appendMessage(sender, text) {
+        const div = document.createElement('div');
+        div.className = `message ${sender}`;
+        div.textContent = text;
+        chatBox.appendChild(div);
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+
+      function formatTraceValue(value) {
+        if (value === null || value === undefined) return 'Không có dữ liệu';
+        if (typeof value === 'string') return value;
+        if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+        try {
+          return JSON.stringify(value, null, 2);
+        } catch (error) {
+          return String(value);
+        }
+      }
+
+      function renderRestaurantReview(trace) {
+        if (!Array.isArray(trace) || trace.length === 0) {
+          restaurantReview.innerHTML = `
+            <h3>📊 Đánh giá nhà hàng</h3>
+            <div class="review-empty-state"><p>Chưa có dữ liệu nhà hàng cho câu hỏi hiện tại.</p></div>
+          `;
+          return;
+        }
+
+        let selectedObservation = null;
+        for (let i = trace.length - 1; i >= 0; i -= 1) {
+          const entry = trace[i];
+          if (entry && entry.observation && entry.observation.data) {
+            selectedObservation = entry.observation;
+            break;
+          }
+        }
+
+        if (!selectedObservation || !selectedObservation.data) {
+          restaurantReview.innerHTML = `
+            <h3>📊 Đánh giá nhà hàng</h3>
+            <div class="review-empty-state"><p>Hệ thống chưa trả về dữ liệu đánh giá chi tiết.</p></div>
+          `;
+          return;
+        }
+
+        const data = selectedObservation.data;
+        const name = selectedObservation.restaurant_name || 'Nhà hàng';
+        const rating = Number(data.rating) || 4.5;
+        const stars = Array.from({ length: 5 }, (_, index) => index < Math.round(rating) ? '★' : '☆').join('');
+
+        restaurantReview.innerHTML = `
+          <h3>📊 Đánh giá nhà hàng</h3>
+          <div class="restaurant-card">
+            <div class="restaurant-header">
+              <span class="restaurant-name">${name}</span>
+              <span class="rating-pill">${rating.toFixed(1)}/5</span>
+            </div>
+            <div class="stars">${stars}</div>
+            <ul class="restaurant-meta">
+              <li><strong>Vị trí:</strong> ${data.location || 'Chưa cập nhật'}</li>
+              <li><strong>Món ăn:</strong> ${data.cuisine || 'Chưa cập nhật'}</li>
+              <li><strong>Giá:</strong> ${data.price_range || 'Chưa cập nhật'}</li>
+            </ul>
+            <div class="feature-list">
+              ${(data.features || []).map((feature) => `<span class="feature-tag">${feature}</span>`).join('')}
+            </div>
+          </div>
+          <div class="review-actions">
+            <button class="mini-action" type="button">Gợi ý nhà hàng khác</button>
+            <button class="mini-action primary" type="button">Đặt bàn</button>
+          </div>
+        `;
+      }
+
+      function renderReasoning(trace) {
+        reasoningBox.innerHTML = '';
+        if (!Array.isArray(trace) || trace.length === 0) {
+          reasoningBox.innerHTML = `
+            <h3>🔎 Cách AI suy luận</h3>
+            <div class="reasoning-empty-state"><p>Quá trình suy luận sẽ hiển thị ở đây sau khi bạn gửi câu hỏi.</p></div>
+          `;
+          return;
+        }
+
+        const title = document.createElement('h3');
+        title.textContent = '🔎 Cách AI suy luận';
+        reasoningBox.appendChild(title);
+
+        const list = document.createElement('div');
+        list.className = 'reasoning-list';
+
+        trace.forEach((entry, index) => {
+          const item = document.createElement('div');
+          item.className = 'reasoning-step';
+
+          const stepLabel = document.createElement('div');
+          stepLabel.className = 'reasoning-step-label';
+          stepLabel.textContent = `Bước ${index + 1}`;
+
+          const type = document.createElement('div');
+          type.className = 'reasoning-type';
+          const rawType = (entry.action_type || 'STEP').toString();
+          type.textContent = rawType;
+          item.dataset.type = rawType;
+
+          const thought = document.createElement('div');
+          thought.className = 'reasoning-body';
+          if (entry.thought) {
+            thought.innerHTML = `<strong>Thought:</strong> ${entry.thought}`;
+          }
+
+          if (entry.tool_name) {
+            const action = document.createElement('div');
+            action.className = 'reasoning-body';
+            action.innerHTML = `<strong>Action:</strong> ${entry.tool_name}(${formatTraceValue(entry.arguments)})`;
+            item.appendChild(action);
+          }
+
+          if (entry.observation) {
+            const observation = document.createElement('div');
+            observation.className = 'reasoning-body';
+            observation.innerHTML = `<strong>Observation:</strong> ${formatTraceValue(entry.observation)}`;
+            item.appendChild(observation);
+          }
+
+          if (entry.output) {
+            const output = document.createElement('div');
+            output.className = 'reasoning-body';
+            output.innerHTML = `<strong>Final answer:</strong> ${entry.output}`;
+            item.appendChild(output);
+          }
+
+          item.appendChild(stepLabel);
+          item.appendChild(type);
+          item.appendChild(thought);
+          list.appendChild(item);
+        });
+
+        reasoningBox.appendChild(list);
+      }
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const message = input.value.trim();
+        if (!message) return;
+
+        appendMessage('user', message);
+        input.value = '';
+        input.disabled = true;
+
+        appendMessage('bot', 'Đang suy luận...');
+        reasoningBox.innerHTML = '<h3>🔎 Cách AI suy luận</h3><p>Đang đọc quy trình suy luận...</p>';
+        restaurantReview.innerHTML = '<h3>📊 Đánh giá nhà hàng</h3><p>Đang cập nhật đánh giá...</p>';
+
+        try {
+          const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message })
+          });
+
+          const data = await response.json();
+          const botMessages = chatBox.querySelectorAll('.message.bot');
+          const lastBot = botMessages[botMessages.length - 1];
+          if (lastBot) {
+            lastBot.textContent = data.answer || 'Không có câu trả lời.';
+          }
+          renderRestaurantReview(data.trace || []);
+          renderReasoning(data.trace || []);
+        } catch (error) {
+          const botMessages = chatBox.querySelectorAll('.message.bot');
+          const lastBot = botMessages[botMessages.length - 1];
+          if (lastBot) {
+            lastBot.textContent = 'Có lỗi khi kết nối server. Vui lòng thử lại.';
+          }
+          reasoningBox.innerHTML = '<h3>🔎 Cách AI suy luận</h3><div class="reasoning-error">Không thể tải quy trình suy luận.</div>';
+          restaurantReview.innerHTML = '<h3>📊 Đánh giá nhà hàng</h3><p>Không thể tải đánh giá.</p>';
+        } finally {
+          input.disabled = false;
+          input.focus();
+        }
+      });
+    </script>
+  </body>
+</html>

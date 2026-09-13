@@ -17,7 +17,7 @@ if sys.stdout.encoding != 'utf-8':
     except Exception:
         pass
 
-from mcp_server import MCPAcademicServer
+from mcp_server import MCPRestaurantServer
 from prompts import (
     CHATBOT_BASELINE_PROMPT,
     REACT_AGENT_SYSTEM_PROMPT,
@@ -54,6 +54,27 @@ def save_waterfall_trace(trace_data: list):
     print(f"📊 [OBSERVABILITY]: Đã lưu {len(trace_data)} sự kiện Waterfall Trace tại '{trace_path}'!")
 
 
+def format_restaurant_summary(obs_data: dict) -> str:
+    """Tạo câu trả lời nhà hàng tự nhiên và mượt mà hơn."""
+    restaurant_name = obs_data.get("restaurant_name", "nhà hàng")
+    data = obs_data.get("data") or {}
+    if not data:
+        return obs_data.get("message") or f"Tôi chưa có thông tin chi tiết cho {restaurant_name}."
+
+    cuisine = data.get("cuisine", "ẩm thực đa dạng")
+    location = data.get("location", "chưa cập nhật vị trí")
+    price_range = data.get("price_range", "chưa cập nhật giá")
+    rating = data.get("rating", "chưa cập nhật")
+    features = data.get("features") or []
+    feature_text = ", ".join(features) if features else "các ưu điểm nổi bật"
+
+    return (
+        f"{restaurant_name} là một lựa chọn phù hợp cho bạn: món {cuisine}, nằm ở {location}. "
+        f"Mức giá khoảng {price_range}, đánh giá {rating}/5. "
+        f"Điểm nổi bật: {feature_text}."
+    )
+
+
 def run_baseline_chatbot(user_query: str, provider):
     """Chạy Chatbot gốc (Cấp 2) không có công cụ gọi Tool"""
     print(f"\n💬 [CHATBOT BASELINE] Câu hỏi: {user_query}")
@@ -61,7 +82,7 @@ def run_baseline_chatbot(user_query: str, provider):
     print(f"🤖 Chatbot phản hồi:\n{response}")
 
 
-def run_react_agent(user_query: str, provider, mcp_server: MCPAcademicServer) -> list:
+def run_react_agent(user_query: str, provider, mcp_server: MCPRestaurantServer) -> list:
     """
     [REACT AGENT LOOP] Thực thi vòng lặp Thought -> Action -> Observation với MCP Server
     Trả về danh sách trace log của phiên thực thi.
@@ -119,19 +140,31 @@ def run_react_agent(user_query: str, provider, mcp_server: MCPAcademicServer) ->
                 
                 # Tổng hợp Final Answer từ kết quả Observation thực tế
                 if obs_data.get("status") == "SUCCESS":
-                    if "data" in obs_data:
-                        d = obs_data["data"]
+                    if "confirmation_id" in obs_data:
                         final_answer = (
-                            f"Kết quả tra cứu cho sinh viên {obs_data.get('student_id', '')} ({d.get('full_name', '')}): "
-                            f"Lớp {d.get('class', '')}, GPA: {d.get('gpa', '')}, Email: {d.get('email', '')}, "
-                            f"Trạng thái: {d.get('status', '')}, Cố vấn: {d.get('advisor', '')}."
+                            f"Đã đặt bàn thành công cho khách hàng {obs_data.get('customer_id', 'KH001')} tại "
+                            f"{obs_data.get('restaurant_name', 'nhà hàng')} vào {obs_data.get('datetime', '')}. "
+                            f"Mã xác nhận: {obs_data.get('confirmation_id', '')}. "
+                            f"Số lượng: {obs_data.get('table_size', '')}. "
+                            f"Yêu cầu đặc biệt: {obs_data.get('preference', 'không có')}."
                         )
+                    elif "restaurant_name" in obs_data:
+                        final_answer = format_restaurant_summary(obs_data)
                     elif "message" in obs_data:
                         final_answer = obs_data["message"]
                     else:
                         final_answer = f"Đã hoàn tất xử lý qua MCP Server: {json.dumps(obs_data, ensure_ascii=False)}"
                 elif obs_data.get("status") == "NOT_FOUND":
-                    final_answer = obs_data.get("message", "Không tìm thấy thông tin sinh viên yêu cầu.")
+                    final_answer = (
+                        obs_data.get("message", "Không tìm thấy nhà hàng hoặc thông tin cần tìm.")
+                        if obs_data.get("message")
+                        else "Hiện tôi chưa thấy nhà hàng phù hợp trong dữ liệu mẫu. Nếu bạn muốn, tôi có thể gợi ý các lựa chọn thay thế.")
+                elif obs_data.get("status") == "RESTAURANT_NOT_FOUND":
+                    restaurant_name = obs_data.get("restaurant", "nhà hàng bạn chọn")
+                    final_answer = (
+                        f"Hiện tôi chưa có {restaurant_name} trong dữ liệu mẫu. "
+                        "Tôi có thể gợi ý các lựa chọn thay thế như Nhà hàng Mộc Lan, The Green Garden hoặc Sushi Sakura."
+                    )
                 else:
                     final_answer = f"Phản hồi từ công cụ: {json.dumps(obs_data, ensure_ascii=False)}"
             
@@ -164,11 +197,11 @@ def run_react_agent(user_query: str, provider, mcp_server: MCPAcademicServer) ->
 
 if __name__ == "__main__":
     print("==========================================================")
-    print("🏫 VINUNI AI COURSE - DAY 03 LAB: CHATBOT VS REACT AGENT")
+    print("�️ RESTAURANT REACT AGENT - DAY 03 LAB")
     print("==========================================================")
     
     provider = get_llm_provider()
-    mcp_server = MCPAcademicServer()
+    mcp_server = MCPRestaurantServer()
     
     print(f"🔌 LLM Provider: {provider.__class__.__name__}")
     print(f"🌐 MCP Server: {mcp_server.server_name}\n")
@@ -179,13 +212,13 @@ if __name__ == "__main__":
     if "--interactive" in sys.argv:
         print("🎮 [INTERACTIVE MODE] Trò chuyện trực tiếp với ReAct Agent:")
         print("💡 Gợi ý câu hỏi thử nghiệm:")
-        print("   - Câu hỏi chung: 'Quy chế học vụ VinUni yêu cầu bao nhiêu tín chỉ?'")
-        print("   - Tra cứu học vụ: 'Hãy tra cứu thông tin học vụ của sinh viên SV2026001'")
-        print("   - Đặt lịch hẹn: 'Đặt lịch hẹn tư vấn cho SV2026001 vào 14:00 ngày 15/09/2026'")
+        print("   - Câu hỏi chung: 'Bạn có thể gợi ý nhà hàng ngon gần trường không?'")
+        print("   - Tra cứu nhà hàng: 'Hãy tìm nhà hàng Việt Nam gần trường với mức giá 100k-200k/người'")
+        print("   - Đặt bàn: 'Đặt bàn cho 4 người vào tối nay lúc 19:00 tại Nhà hàng Mộc Lan'")
         print("   - Gõ 'exit' hoặc 'quit' để kết thúc phiên trò chuyện.\n")
         while True:
             try:
-                user_input = input("👤 Sinh viên hỏi: ").strip()
+                user_input = input("👤 Khách hàng hỏi: ").strip()
                 if not user_input or user_input.lower() in ["exit", "quit"]:
                     print("👋 Tạm biệt! Kết thúc phiên trò chuyện.")
                     break
@@ -227,7 +260,7 @@ if __name__ == "__main__":
         print("  2. Chạy toàn bộ Test Cases:    python src/app.py --all\n")
         
         sample_query = tests[1]["question"]
-        print(f"--- 🏁 DEMO CHẠY THỬ 1 TEST CASE MẪU (TC02: Tra cứu học vụ) ---")
+        print(f"--- 🏁 DEMO CHẠY THỬ 1 TEST CASE MẪU (TC02: Tra cứu nhà hàng) ---")
         logs = run_react_agent(sample_query, provider, mcp_server)
         save_waterfall_trace(logs)
         print("\n💡 Hãy thử ngay lệnh: python src/app.py --interactive để chat trực tiếp!")

@@ -1,0 +1,37 @@
+[
+  {
+    "id": "TC01",
+    "type": "direct_query",
+    "question": "Chào bạn, bạn có thể gợi ý cho tôi một số địa điểm nhà hàng ngon gần khu vực trường học không?",
+    "expected_behavior": "Chatbot trả lời trực tiếp từ System Prompt, không cần gọi bất kỳ Tool nào.",
+    "complexity": "Low"
+  },
+  {
+    "id": "TC02",
+    "type": "single_tool_query",
+    "question": "Tôi muốn tìm nhà hàng gần trường có mức giá từ 100k đến 200k và phục vụ món Việt Nam.",
+    "expected_behavior": "Agent nhận diện nhu cầu tìm nhà hàng phù hợp, gọi Tool tìm kiếm nhà hàng theo vị trí, mức giá và loại món ăn, sau đó đề xuất lựa chọn phù hợp.",
+    "complexity": "Medium"
+  },
+  {
+    "id": "TC03",
+    "type": "appointment_booking",
+    "question": "Tôi muốn đặt bàn cho 4 người vào tối nay lúc 19:00 ở nhà hàng gần trường có không gian yên tĩnh.",
+    "expected_behavior": "Agent phát hiện nhu cầu đặt bàn và gọi Tool 'schedule_appointment' hoặc tương đương để xác nhận giờ đặt, số lượng khách và nhà hàng phù hợp.",
+    "complexity": "Medium"
+  },
+  {
+    "id": "TC04",
+    "type": "multi_step_reasoning",
+    "question": "Tôi đang cần một nhà hàng gần trường, bình dân nhưng vẫn ngon, có món chay và không quá xa nếu đi bộ; nếu không có, hãy gợi ý nhà hàng khác trong tầm 10 phút đi bộ.",
+    "expected_behavior": "Agent thực hiện chuỗi suy luận ReAct: lọc theo khoảng cách, chuẩn đầu vào về mức giá, loại món ăn và ưu tiên nhà hàng phù hợp nhất để đề xuất.",
+    "complexity": "High"
+  },
+  {
+    "id": "TC05",
+    "type": "edge_case_handling",
+    "question": "Tôi muốn tìm nhà hàng hạng sang gần trường nhưng không có dữ liệu phù hợp trong ngân sách 400k/người. Hãy cho tôi gợi ý thay thế hợp lý.",
+    "expected_behavior": "Agent xử lý trường hợp không có kết quả phù hợp, đưa ra phản hồi rõ ràng, đề xuất thay thế hợp lý dựa trên dữ liệu thực tế và không bịa thông tin.",
+    "complexity": "Medium"
+  }
+]

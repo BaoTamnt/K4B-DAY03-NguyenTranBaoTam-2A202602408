@@ -31,33 +31,184 @@ class MockOfflineProvider(BaseLLMProvider):
     def __init__(self):
         self.model_name = "Offline-Mock-Model-2026"
 
+    @staticmethod
+    def _pick_restaurant(prompt_lower: str) -> str:
+        if "món chay" in prompt_lower or "chay" in prompt_lower:
+            return "The Green Garden"
+        if "pizza" in prompt_lower or "nhóm bạn" in prompt_lower or "nhóm" in prompt_lower:
+            return "Pizza House"
+        if "sang" in prompt_lower or "sushi" in prompt_lower or "nhật" in prompt_lower:
+            return "Sushi Sakura"
+        if "không gian yên tĩnh" in prompt_lower or "món việt" in prompt_lower or "việt nam" in prompt_lower or "gia đình" in prompt_lower:
+            return "Nhà hàng Mộc Lan"
+        if "gần trường" in prompt_lower or "gợi ý" in prompt_lower or "địa điểm" in prompt_lower:
+            return "Nhà hàng Mộc Lan"
+        return "Nhà hàng Mộc Lan"
+
+    @staticmethod
+    def _extract_booking_info(prompt: str):
+        prompt_lower = prompt.lower()
+        restaurant_name = None
+        for candidate in ["nhà hàng mộc lan", "mộc lan", "the green garden", "green garden", "pizza house", "sushi sakura"]:
+            if candidate in prompt_lower:
+                restaurant_name = candidate
+                break
+
+        time_text = None
+        if "19:00" in prompt or "19h" in prompt_lower or "19 giờ" in prompt_lower:
+            time_text = "19:00"
+        elif "tối nay" in prompt_lower:
+            time_text = "tối nay"
+        elif "sáng" in prompt_lower:
+            time_text = "sáng"
+        elif "trưa" in prompt_lower:
+            time_text = "trưa"
+
+        table_size = None
+        for match in ["2 người", "3 người", "4 người", "5 người", "6 người", "7 người", "8 người"]:
+            if match in prompt_lower:
+                table_size = match
+                break
+        if table_size is None:
+            if "cho 2" in prompt_lower or "2 khách" in prompt_lower:
+                table_size = "2 người"
+            elif "cho 3" in prompt_lower or "3 khách" in prompt_lower:
+                table_size = "3 người"
+            elif "cho 4" in prompt_lower or "4 khách" in prompt_lower:
+                table_size = "4 người"
+
+        preference = None
+        if "món chay" in prompt_lower or "chay" in prompt_lower:
+            preference = "món chay"
+        elif "không gian yên tĩnh" in prompt_lower or "yên tĩnh" in prompt_lower:
+            preference = "không gian yên tĩnh"
+        elif "nhóm bạn" in prompt_lower or "nhóm" in prompt_lower:
+            preference = "phù hợp nhóm bạn"
+        elif "sang trọng" in prompt_lower or "nhật" in prompt_lower:
+            preference = "không gian sang trọng"
+
+        return {
+            "restaurant_name": restaurant_name,
+            "time_text": time_text,
+            "table_size": table_size,
+            "preference": preference,
+        }
+
     def generate(self, prompt: str, system_prompt: str = "") -> str:
-        return f"[Mock Chatbot Response]: Xin chào! Tôi đã nhận được câu hỏi '{prompt}'. (Chế độ Chatbot không có Tool tra cứu dữ liệu thời gian thực)."
+        prompt_lower = prompt.lower()
+        if "đặt bàn" in prompt_lower or "đặt chỗ" in prompt_lower or "đặt lịch" in prompt_lower:
+            info = self._extract_booking_info(prompt)
+            missing = []
+            if not info["restaurant_name"]:
+                missing.append("nhà hàng")
+            if not info["time_text"]:
+                missing.append("thời gian")
+            if not info["table_size"]:
+                missing.append("số lượng người")
+            if missing:
+                return (
+                    "[Mock Chatbot Response]: Tôi có thể hỗ trợ đặt bàn, nhưng trước tiên tôi cần bạn xác nhận "
+                    + ", ".join(missing) + ". "
+                    + "Bạn muốn đặt ở nhà hàng nào, vào thời gian nào và cho bao nhiêu người?"
+                )
+            return f"[Mock Chatbot Response]: Tôi có thể hỗ trợ đặt bàn cho {info['table_size']} tại {info['restaurant_name']} vào {info['time_text']}."
+        if "nhà hàng" in prompt_lower or "ăn" in prompt_lower or "món" in prompt_lower:
+            selected = self._pick_restaurant(prompt_lower)
+            if selected == "The Green Garden":
+                return "[Mock Chatbot Response]: Gợi ý cho bạn: The Green Garden (món chay, không gian xanh, phù hợp nếu bạn muốn ăn lành mạnh)."
+            if selected == "Pizza House":
+                return "[Mock Chatbot Response]: Gợi ý cho bạn: Pizza House (pizza, phù hợp nhóm bạn, không gian trẻ trung)."
+            if selected == "Sushi Sakura":
+                return "[Mock Chatbot Response]: Gợi ý cho bạn: Sushi Sakura (món Nhật, không gian sang trọng, phù hợp cho bữa ăn hạng sang)."
+            return "[Mock Chatbot Response]: Gợi ý cho bạn: Nhà hàng Mộc Lan (món Việt, không gian yên tĩnh, phù hợp gia đình và hẹn hò)."
+        return f"[Mock Chatbot Response]: Tôi đã nhận được câu hỏi '{prompt}'. Tôi có thể gợi ý nhà hàng phù hợp để bạn chọn."
 
     def generate_with_tools(self, prompt: str, tools_schema: List[Dict[str, Any]], system_prompt: str = "") -> Dict[str, Any]:
         prompt_lower = prompt.lower()
-        
-        # Mô phỏng nhận diện intent gọi Tool
-        if "sv2026001" in prompt_lower and "đặt lịch" in prompt_lower:
+
+        if "đặt bàn" in prompt_lower or "đặt chỗ" in prompt_lower or "đặt lịch" in prompt_lower:
+            info = self._extract_booking_info(prompt)
+            missing = []
+            if not info["restaurant_name"]:
+                missing.append("tên nhà hàng")
+            if not info["time_text"]:
+                missing.append("thời gian đặt bàn")
+            if not info["table_size"]:
+                missing.append("số lượng khách")
+
+            if missing:
+                suggestions = [
+                    "Nhà hàng Mộc Lan (món Việt, yên tĩnh)",
+                    "The Green Garden (món chay, không gian xanh)",
+                    "Pizza House (phù hợp nhóm bạn)"
+                ]
+                return {
+                    "type": "text",
+                    "content": (
+                        "Tôi có thể hỗ trợ đặt bàn, nhưng bạn chưa cho tôi đủ thông tin để xác nhận. "
+                        f"Bạn cần cho tôi {', '.join(missing)}. "
+                        f"Một số lựa chọn phù hợp: {', '.join(suggestions)}. "
+                        "Hãy cho tôi biết nhà hàng bạn muốn, thời gian và số lượng người, tôi sẽ giúp đặt chỗ cho bạn."
+                    ),
+                    "thought": "Khách hàng muốn đặt bàn nhưng thiếu thông tin cần thiết; nên hỏi xác nhận trước khi gọi tool đặt chỗ."
+                }
+
+            # Chỉ gọi tool khi đã có đầy đủ dữ liệu người dùng cung cấp
+            restaurant_name = self._pick_restaurant(prompt_lower)
+            if info["restaurant_name"]:
+                restaurant_name = {
+                    "mộc lan": "Nhà hàng Mộc Lan",
+                    "the green garden": "The Green Garden",
+                    "green garden": "The Green Garden",
+                    "pizza house": "Pizza House",
+                    "sushi sakura": "Sushi Sakura",
+                }.get(info["restaurant_name"], self._pick_restaurant(prompt_lower))
+
+            preference = info["preference"] or "không gian yên tĩnh"
+            table_size_value = 4
+            if info["table_size"] == "2 người":
+                table_size_value = 2
+            elif info["table_size"] == "3 người":
+                table_size_value = 3
+            elif info["table_size"] == "5 người":
+                table_size_value = 5
+            elif info["table_size"] == "6 người":
+                table_size_value = 6
+
+            datetime_str = info["time_text"] if info["time_text"] and info["time_text"] != "tối nay" else "19:00 15/09/2026"
+            if info["time_text"] == "tối nay":
+                datetime_str = "19:00 15/09/2026"
+
             return {
                 "type": "tool_call",
                 "tool_name": "schedule_appointment",
-                "arguments": {"student_id": "SV2026001", "datetime_str": "14:00 15/09/2026", "advisor_name": "PGS.TS Nguyễn Văn A"},
-                "thought": "Người dùng yêu cầu đặt lịch hẹn tư vấn cho sinh viên SV2026001. Tôi sẽ gọi tool schedule_appointment."
+                "arguments": {
+                    "customer_id": "KH001",
+                    "datetime_str": datetime_str,
+                    "restaurant_name": restaurant_name,
+                    "table_size": table_size_value,
+                    "preference": preference
+                },
+                "thought": f"Khách hàng đã cung cấp đủ thông tin để xác nhận đặt bàn. Tôi sẽ gọi tool schedule_appointment cho {restaurant_name}."
             }
-        elif "sv2026001" in prompt_lower or "tra cứu" in prompt_lower:
+
+        if "tìm" in prompt_lower or "gợi ý" in prompt_lower or "nhà hàng" in prompt_lower or "ăn" in prompt_lower or "món" in prompt_lower or "địa điểm" in prompt_lower:
+            restaurant_name = self._pick_restaurant(prompt_lower)
             return {
                 "type": "tool_call",
-                "tool_name": "academic_query",
-                "arguments": {"student_id": "SV2026001"},
-                "thought": "Người dùng muốn tra cứu thông tin học vụ của sinh viên SV2026001. Tôi sẽ gọi tool academic_query."
+                "tool_name": "restaurant_query",
+                "arguments": {
+                    "restaurant_name": restaurant_name,
+                    "customer_id": "KH001"
+                },
+                "thought": f"Câu hỏi yêu cầu tra cứu nhà hàng phù hợp. Tôi sẽ gọi tool restaurant_query để kiểm tra thông tin chi tiết của {restaurant_name}."
             }
-        else:
-            return {
-                "type": "text",
-                "content": f"[Mock Agent Response]: Xin chào! Quy chế học vụ VinUni yêu cầu sinh viên tích lũy tối thiểu 120 tín chỉ và duy trì GPA trên 2.0 để tốt nghiệp.",
-                "thought": "Câu hỏi chung về quy chế học vụ, trả lời trực tiếp không cần gọi Tool."
-            }
+
+        return {
+            "type": "text",
+            "content": "[Mock Agent Response]: Tôi có thể gợi ý một số nhà hàng phù hợp theo vị trí, mức giá và phong cách ẩm thực của bạn.",
+            "thought": "Câu hỏi chung về nhà hàng, đưa ra gợi ý ngắn gọn và phù hợp với nhu cầu khách hàng."
+        }
 
 
 class GeminiProvider(BaseLLMProvider):
